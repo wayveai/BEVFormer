@@ -314,7 +314,8 @@ def lidiar_render(sample_token, data,out_path=None):
     pred_annotations.add_boxes(sample_token, bbox_pred_list)
     print('green is ground truth')
     print('blue is the predited result')
-    visualize_sample(nusc, sample_token, gt_annotations, pred_annotations, savepath=out_path+'_bev')
+    # visualize_sample(nusc, sample_token, gt_annotations, pred_annotations, savepath=out_path+'_bev')
+    visualize_sample(nusc, sample_token, gt_annotations, pred_annotations, savepath='bev_'+out_path)
 
 
 def get_color(category_name: str):
@@ -463,15 +464,19 @@ def render_sample_data(
         ax[j + 2, ind].set_aspect('equal')
 
     if out_path is not None:
-        plt.savefig(out_path+'_camera', bbox_inches='tight', pad_inches=0, dpi=200)
+        # plt.savefig(out_path+'_camera', bbox_inches='tight', pad_inches=0, dpi=200)
+        plt.savefig('camera_'+out_path, bbox_inches='tight', pad_inches=0, dpi=200)
     if verbose:
         plt.show()
     plt.close()
 
 if __name__ == '__main__':
-    nusc = NuScenes(version='v1.0-trainval', dataroot='./data/nuscenes', verbose=True)
+    # nusc = NuScenes(version='v1.0-trainval', dataroot='./data/nuscenes', verbose=True)
+    nusc = NuScenes(version='v1.0-mini', dataroot='/mnt/local/NuScenes', verbose=True)
     # render_annotation('7603b030b42a4b1caa8c443ccc1a7d52')
-    bevformer_results = mmcv.load('test/bevformer_base/Thu_Jun__9_16_22_37_2022/pts_bbox/results_nusc.json')
+
+    # bevformer_results = mmcv.load('test/bevformer_tiny/Mon_Jun_27_14_25_27_2022/pts_bbox/results_nusc.json')
+    bevformer_results = mmcv.load('test/bevformer_small/Mon_Jun_27_15_52_10_2022/pts_bbox/results_nusc.json')
     sample_token_list = list(bevformer_results['results'].keys())
-    for id in range(0, 10):
-        render_sample_data(sample_token_list[id], pred_data=bevformer_results, out_path=sample_token_list[id])
+    for i, sample_token in enumerate(sample_token_list):
+        render_sample_data(sample_token, pred_data=bevformer_results, out_path=str(i)+'_'+sample_token, verbose=False)
