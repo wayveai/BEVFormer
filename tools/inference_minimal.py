@@ -9,45 +9,9 @@ from projects.mmdet3d_plugin.bevformer.detectors.bevformer import BEVFormer
 from mmdet3d.datasets import build_dataset
 from projects.mmdet3d_plugin.datasets.builder import build_dataloader
 
+model_size = 'small'
 
-cfg = Config.fromfile('projects/configs/bevformer/bevformer_tiny.py')
-
-
-# from mmdet3d.models import build_model
-# from mmdet3d.models import build_detector
-# from mmdet.models.builder import MODELS as MMDET_DETECTORS
-
-# from mmcv.cnn import MODELS as MMCV_MODELS
-# from mmcv.utils import Registry
-
-# # import modules from plguin/xx, registry will be updated
-# if hasattr(cfg, 'plugin'):
-#     if cfg.plugin:
-#         import importlib
-#         if hasattr(cfg, 'plugin_dir'):
-#             plugin_dir = cfg.plugin_dir
-#             _module_dir = os.path.dirname(plugin_dir)
-#             _module_dir = _module_dir.split('/')
-#             _module_path = _module_dir[0]
-
-#             for m in _module_dir[1:]:
-#                 _module_path = _module_path + '.' + m
-#             print(_module_path)
-#             plg_lib = importlib.import_module(_module_path)
-#         else:
-#             # import dir is the dirpath for the config file
-#             _module_dir = os.path.dirname(args.config)
-#             _module_dir = _module_dir.split('/')
-#             _module_path = _module_dir[0]
-#             for m in _module_dir[1:]:
-#                 _module_path = _module_path + '.' + m
-#             print(_module_path)
-#             plg_lib = importlib.import_module(_module_path)
-
-# model = build_model(cfg.model, test_cfg=cfg.get('test_cfg'))
-# model = build_detector(cfg.model, test_cfg=cfg.get('test_cfg'))
-# model = MMDET_DETECTORS.build(cfg.model, default_args=dict(train_cfg=None, test_cfg=cfg.get('test_cfg')))
-
+cfg = Config.fromfile(f'projects/configs/bevformer/bevformer_{model_size}.py')
 
 
 # build the dataloader
@@ -67,7 +31,7 @@ args = cfg.model.copy()
 args.pop('type')
 # print(args)
 model = BEVFormer(**args)
-model.load_state_dict(torch.load('ckpts/bevformer_tiny_epoch_24.pth')['state_dict'])
+model.load_state_dict(torch.load(f'ckpts/bevformer_{model_size}_epoch_24.pth')['state_dict'])
 model = MMDataParallel(model) # necessary for model to handle nested data structure from dataloader
 model.eval()
 
@@ -79,15 +43,37 @@ for i, data in enumerate(data_loader):
         # print(data['img'])
 
         result = model(return_loss=False, rescale=True, **data)
-        print(result)
 
-        lidar2img = data['img_metas'][0].data[0][0]['lidar2img'][0]
-        print(lidar2img)
+
+        result = result[0]['pts_bbox']
+        boxes = result['boxes_3d']
+        corners = boxes.corners
+        labels = result['labels_3d']
+        scores = result['scores_3d']
+
+        # project boxes to images
+        lidar2img = torch.tensor(data['img_metas'][0].data[0][0]['lidar2img'][0], dtype=torch.float32)
+        corners_img = (lidar2img[:3,:3] @ corners.unsqueeze(-1) + lidar2img[:3,3:]).squeeze(-1)
+        corners_cam = corners_img[...,:2] / corners_img[...,2:]
+        masks = (corners_img[...,2]>0).all(1)
 
         img_norm_cfg = data['img_metas'][0].data[0][0]['img_norm_cfg']
         img = data['img'][0].data[0]
         img = img[0,0].permute(1,2,0) * img_norm_cfg['std'] + img_norm_cfg['mean']
-        plt.imshow(img/255)
-        plt.show()
 
-        break
+        # plot
+        plt.subplot(1,2,1)
+        inds = [0,4,7,3,0]
+        for corner, label, score in zip(corners, labels, scores):
+            if score > .15:
+                plt.plot(corner[inds,0], corner[inds,1], '-')
+        plt.axis('equal')
+        
+        plt.subplot(1,2,2)
+        plt.imshow(img/255)
+        inds = [0,1,2,3,0, 4,5,6,7,4, 5,1,2,6,7,3]
+        for corner, label, score, mask in zip(corners_cam, labels, scores, masks):
+            if mask and score > .15:
+                plt.plot(corner[inds,0], corner[inds,1], '-')
+        plt.axis([0,img.shape[1],img.shape[0],0])
+        plt.show()
