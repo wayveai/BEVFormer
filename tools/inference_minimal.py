@@ -337,7 +337,7 @@ class SpatialCrossAttention(BaseModule):
         deformable_attention.pop('type')
         self.deformable_attention = MSDeformableAttention3D(**deformable_attention)
         self.embed_dims = embed_dims
-        self.num_cams = num_cams
+        # self.num_cams = num_cams
         self.output_proj = nn.Linear(embed_dims, embed_dims)
         self.batch_first = batch_first
         self.init_weight()
@@ -405,6 +405,7 @@ class SpatialCrossAttention(BaseModule):
             query = query + query_pos
 
         bs, num_query, _ = query.size()
+        num_cams, l, _, embed_dims = key.shape
 
         D = reference_points_cam.size(3)
         indexes = []
@@ -415,9 +416,9 @@ class SpatialCrossAttention(BaseModule):
 
         # each camera only interacts with its corresponding BEV queries. This step can  greatly save GPU memory.
         queries_rebatch = query.new_zeros(
-            [bs, self.num_cams, max_len, self.embed_dims])
+            [bs, num_cams, max_len, self.embed_dims])
         reference_points_rebatch = reference_points_cam.new_zeros(
-            [bs, self.num_cams, max_len, D, 2])
+            [bs, num_cams, max_len, D, 2])
         
         for j in range(bs):
             for i, reference_points_per_img in enumerate(reference_points_cam):   
@@ -425,16 +426,16 @@ class SpatialCrossAttention(BaseModule):
                 queries_rebatch[j, i, :len(index_query_per_img)] = query[j, index_query_per_img]
                 reference_points_rebatch[j, i, :len(index_query_per_img)] = reference_points_per_img[j, index_query_per_img]
 
-        num_cams, l, bs, embed_dims = key.shape
+        
 
         key = key.permute(2, 0, 1, 3).reshape(
-            bs * self.num_cams, l, self.embed_dims)
+            bs * num_cams, l, self.embed_dims)
         value = value.permute(2, 0, 1, 3).reshape(
-            bs * self.num_cams, l, self.embed_dims)
+            bs * num_cams, l, self.embed_dims)
 
-        queries = self.deformable_attention(query=queries_rebatch.view(bs*self.num_cams, max_len, self.embed_dims), key=key, value=value,
-                                            reference_points=reference_points_rebatch.view(bs*self.num_cams, max_len, D, 2), spatial_shapes=spatial_shapes,
-                                            level_start_index=level_start_index).view(bs, self.num_cams, max_len, self.embed_dims)
+        queries = self.deformable_attention(query=queries_rebatch.view(bs*num_cams, max_len, self.embed_dims), key=key, value=value,
+                                            reference_points=reference_points_rebatch.view(bs*num_cams, max_len, D, 2), spatial_shapes=spatial_shapes,
+                                            level_start_index=level_start_index).view(bs, num_cams, max_len, self.embed_dims)
         for j in range(bs):
             for i, index_query_per_img in enumerate(indexes):
                 slots[j, index_query_per_img] += queries[j, i, :len(index_query_per_img)]
@@ -2311,7 +2312,20 @@ class PerceptionTransformer(BaseModule):
             spatial_shape = (h, w)
             feat = feat.flatten(3).permute(1, 0, 3, 2)
             if self.use_cams_embeds:
-                feat = feat + self.cams_embeds[:, None, None, :].to(feat.dtype)
+
+                # TODO: is there a more robust way to select cameras?
+                if (self.cams_embeds.shape[0]==3 or self.cams_embeds.shape[0]==6) and num_cam == 1:
+                    # front-forward TODO: they order there cameras differently... front-forward is fisrt...
+                    # cams_embeds = self.cams_embeds[1:2]
+                    cams_embeds = self.cams_embeds[:1]
+                elif num_cam == 3:
+                    # front-left, front-forward, front-right
+                    cams_embeds = self.cams_embeds[:3]
+                else:
+                    # all
+                    cams_embeds = self.cams_embeds
+
+                feat = feat + cams_embeds[:, None, None, :].to(feat.dtype)
             feat = feat + self.level_embeds[None,
                                             None, lvl:lvl + 1, :].to(feat.dtype)
             spatial_shapes.append(spatial_shape)
@@ -4144,11 +4158,8 @@ class MVXTwoStageDetector(Base3DDetector):
             for img_meta in img_metas:
                 img_meta.update(input_shape=input_shape)
 
-            if img.dim() == 5 and img.size(0) == 1:
-                img.squeeze_()
-            elif img.dim() == 5 and img.size(0) > 1:
-                B, N, C, H, W = img.size()
-                img = img.view(B * N, C, H, W)
+            B, N, C, H, W = img.size()
+            img = img.view(B * N, C, H, W)
             img_feats = self.img_backbone(img)
         else:
             return None
@@ -4469,11 +4480,8 @@ class BEVFormer(MVXTwoStageDetector):
             # for img_meta in img_metas:
             #     img_meta.update(input_shape=input_shape)
 
-            if img.dim() == 5 and img.size(0) == 1:
-                img.squeeze_()
-            elif img.dim() == 5 and img.size(0) > 1:
-                B, N, C, H, W = img.size()
-                img = img.reshape(B * N, C, H, W)
+            B, N, C, H, W = img.size()
+            img = img.view(B * N, C, H, W)
             if self.use_grid_mask:
                 img = self.grid_mask(img)
 
@@ -4726,8 +4734,8 @@ def main():
 
             temp = data['img_metas'][0].data[0][0]
             print(temp['img_shape'])
-            print(temp['lidar2img'])
-            print(temp['can_bus'])
+            print(len(temp['lidar2img']), temp['lidar2img'][0].shape)
+            print(type(temp['can_bus']))
             print(temp['scene_token'])
             print(temp['box_type_3d'])
             print(temp['img_norm_cfg'])
@@ -4737,14 +4745,17 @@ def main():
                     DataContainer([[{
                         'img_shape': [(480, 800, 3), (480, 800, 3), (480, 800, 3), (480, 800, 3), (480, 800, 3), (480, 800, 3)],
                         'lidar2img': temp['lidar2img'],
-                        'can_bus': temp['can_bus'],
+                        'can_bus': np.zeros(18), #temp['can_bus'],
                         'scene_token': temp['scene_token'],
                         'box_type_3d': LiDARInstance3DBoxes,
                         'img_norm_cfg': {'mean': np.array([123.675, 116.28 , 103.53 ], dtype=np.float32), 'std': np.array([58.395, 57.12 , 57.375], dtype=np.float32), 'to_rgb': True},
                     }]], cpu_only=True)
                 ],
-                'img': [DataContainer(data['img'][0].data)]
+                'img': [DataContainer([data['img'][0].data[0]])]
             }
+
+            print(len(data['img_metas'][0].data[0][0]['lidar2img']), data['img_metas'][0].data[0][0]['lidar2img'][0].shape)
+            print(data['img'][0].data[0].shape)
 
             result = model(return_loss=False, rescale=True, **data)
 
