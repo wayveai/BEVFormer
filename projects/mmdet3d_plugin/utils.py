@@ -1,4 +1,5 @@
 import numpy as np
+import transforms3d as t3d
 from scipy.spatial.transform import Rotation, Slerp
 
 
@@ -26,6 +27,26 @@ class Transform:
         if isinstance(value, Transform):
             self.matrix = np.array(value)
 
+        elif isinstance(value, Rotation):
+            self.rotation = value.as_matrix()
+
+        elif value is not None:
+            value = np.array(value)
+            if value.shape == (4, 4):
+                self.matrix = value
+
+            if value.shape == (16,):
+                self.matrix = np.array(value).reshape((4, 4))
+
+            elif value.shape == (3, 4):
+                self.matrix[:3, :4] = value
+
+            elif value.shape == (3, 3):
+                self.rotation = value
+
+            elif value.shape == (3,):
+                self.translation = value
+
     @classmethod
     def from_Rt(cls, R, t):
         """Create a transform based on a rotation and a translation components.
@@ -41,6 +62,24 @@ class Transform:
         if isinstance(R, Rotation):
             R = R.as_matrix()
         return cls(np.block([[R, np.mat(t).T], [np.zeros(3), 1]]))
+
+    @staticmethod
+    def from_euler(angles, axes="sxyz", degrees=False):
+        """Create a transform from euler angles
+
+        :param angles: Values of the rotation per axis
+        :type angles: list
+        :param axes: Order of the axis (default ``sxyz``)
+        :type axes: str
+        :param degrees: Use degrees or radians values (default ``False`` = radians)
+        :type degrees: boolean
+        :returns: Transform created from euler angles
+        :rtype: Transform
+
+        """
+        if degrees:
+            angles = np.deg2rad(angles)
+        return Transform(t3d.euler.euler2mat(*angles, axes=axes))
 
     @property
     def rotation(self):

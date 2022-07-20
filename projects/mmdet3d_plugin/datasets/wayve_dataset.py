@@ -13,7 +13,14 @@ from projects.mmdet3d_plugin.utils import Transform
 from .nuscenes_dataset import CustomNuScenesDataset
 
 
-IMG_ROOT = Path('./data/wayve')
+camera_order = [
+    'front-forward',
+    'front-right-rightward',
+    'front-left-leftward',
+    'back-backward',
+    'back-left-leftward',
+    'back-right-rightward',
+]
 
 
 @DATASETS.register_module()
@@ -34,10 +41,10 @@ class WayveDataset(CustomNuScenesDataset):
         """
         with open(ann_file, 'rb') as f:
             data = pickle.load(f)
-        for d in data:
-            d['token'] = d['timestamp_us']
-        return data[:15*3]
-            #  return pickle.load(f)
+
+        # Make a mapping so that we can load a sample given its 'token'
+        self.token_mapping = {d['token']: i for i, d in enumerate(data)}
+        return data
 
     def get_data_info(self, index):
         """Get data info according to the given index.
@@ -60,6 +67,7 @@ class WayveDataset(CustomNuScenesDataset):
         """
         info = self.data_infos[index]
         can_bus = np.zeros(18)
+        #  import ipdb; ipdb.set_trace()
         input_dict = dict(
             sample_idx=info['seq_num'],
             pts_filename='',
@@ -76,18 +84,30 @@ class WayveDataset(CustomNuScenesDataset):
             #  timestamp=info['timestamp_us'] / 1e6,
         )
 
+        #  import ipdb; ipdb.set_trace()
         # G_V_L is transform from lidar to ego vehicle
         G_V_L = Transform.from_Rt(
             R.from_quat(info['lidar2ego_rotation']),
             np.array(info['lidar2ego_translation']),
         )
+        G_FF_L2 = Transform.from_Rt(
+            R.from_euler('xyz', (88.93, 0.008, 0.374), degrees=True),
+            t=[ 0.012, -0.334, -0.408],
+        )
+        G_V_FF = Transform.from_Rt(
+            R.from_quat(info['cameras']['front-forward']['cam2ego_rotation']),
+            np.array(info['cameras']['front-forward']['cam2ego_translation']),
+        )
+        G_L2_L = G_FF_L2.inverse @ G_V_FF.inverse @ G_V_L
 
         if self.modality['use_camera']:
+            #  import ipdb; ipdb.set_trace()
             image_paths = []
             lidar2img_rts = []
             lidar2cam_rts = []
             cam_intrinsics = []
-            for cam_type, cam_info in info['cameras'].items():
+            for cam_type in camera_order:
+                cam_info = info['cameras'][cam_type]
                 # obtain lidar to image transformation matrix
                 G_V_C = Transform.from_Rt(
                     R.from_quat(cam_info['cam2ego_rotation']),
@@ -96,18 +116,19 @@ class WayveDataset(CustomNuScenesDataset):
 
                 # This is lidar2cam
                 G_C_L = G_V_C.inverse @ G_V_L
+                #  G_C_L = G_C_L @ G_L2_L.inverse
 
                 K = np.array(cam_info['cam_intrinsic'])
-                G_im_C = np.eye(4)
-                G_im_C[:3, :3] = K
+                # Make a 4x4 matrix with upper left the intrinsics
+                G_im_C = Transform(K)
 
                 # Lidar to image
                 G_im_L = G_im_C @ G_C_L
 
                 image_paths.append(osp.join(self.data_root, cam_info['path']))
-                lidar2img_rts.append(G_im_L)
-                lidar2cam_rts.append(G_C_L)
-                cam_intrinsics.append(G_im_C)
+                lidar2img_rts.append(G_im_L.matrix)
+                lidar2cam_rts.append(G_C_L.matrix)
+                cam_intrinsics.append(G_im_C.matrix)
 
             input_dict.update(
                 dict(

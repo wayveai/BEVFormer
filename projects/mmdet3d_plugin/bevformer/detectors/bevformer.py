@@ -237,6 +237,7 @@ class BEVFormer(MVXTwoStageDetector):
                     name, type(var)))
         img = [img] if img is None else img
 
+        #  import ipdb; ipdb.set_trace()
         if img_metas[0][0]['scene_token'] != self.prev_frame_info['scene_token']:
             # the first sample of each scene is truncated
             self.prev_frame_info['prev_bev'] = None
@@ -267,6 +268,7 @@ class BEVFormer(MVXTwoStageDetector):
 
     def simple_test_pts(self, x, img_metas, prev_bev=None, rescale=False):
         """Test function"""
+        #  import ipdb; ipdb.set_trace()
         outs = self.pts_bbox_head(x, img_metas, prev_bev=prev_bev)
 
         bbox_list = self.pts_bbox_head.get_bboxes(

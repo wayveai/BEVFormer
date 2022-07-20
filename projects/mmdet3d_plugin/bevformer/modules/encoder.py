@@ -113,6 +113,7 @@ class BEVFormerEncoder(TransformerLayerSequence):
         D, B, num_query = reference_points.size()[:3]
         num_cam = lidar2img.size(1)
 
+        #  import ipdb; ipdb.set_trace()
         reference_points = reference_points.view(
             D, B, 1, num_query, 4).repeat(1, 1, num_cam, 1, 1).unsqueeze(-1)
 
