@@ -63,7 +63,6 @@ RUN python -m pip install mmcv-full==1.4.0 -f https://download.openmmlab.com/mmc
 RUN git clone https://github.com/open-mmlab/mmdetection3d.git \
     && cd mmdetection3d \
     && git checkout v0.17.1 \
-    # && pip install -v -e . \
     && python3 -m pip install -r requirements/runtime.txt \
     && python3 -m pip install numpy cython pythran \
     && python3 setup.py develop \
@@ -72,6 +71,5 @@ RUN git clone https://github.com/open-mmlab/mmdetection3d.git \
 RUN python -m pip install --upgrade transforms3d numpy
 RUN apt-get install -y python3.8-tk
 
-# RUN cp -r /mmdetection3d/mmdet3d /usr/local/lib/python3.8/dist-packages/
 ENV PYTHONPATH "${PYTHONPATH}:/mmdetection3d"
 CMD CUDA_VISIBLE_DEVICES=6,7 /BEVFormer/tools/dist_train.sh /BEVFormer/projects/configs/bevformer/bevformer_small.py 2
