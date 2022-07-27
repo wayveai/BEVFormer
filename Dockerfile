@@ -72,4 +72,5 @@ RUN python -m pip install --upgrade transforms3d numpy
 RUN apt-get install -y python3.8-tk
 
 ENV PYTHONPATH "${PYTHONPATH}:/mmdetection3d"
-CMD CUDA_VISIBLE_DEVICES=6,7 /BEVFormer/tools/dist_train.sh /BEVFormer/projects/configs/bevformer/bevformer_small.py 2
+WORKDIR /BEVFormer
+CMD CUDA_VISIBLE_DEVICES=6,7 ./tools/dist_train.sh ./projects/configs/bevformer/bevformer_small_wayve_overfit.py 2
