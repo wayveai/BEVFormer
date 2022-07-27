@@ -12,7 +12,15 @@ from mmdet3d.datasets import build_dataset
 from projects.mmdet3d_plugin.datasets.builder import build_dataloader
 
 
-cfg = Config.fromfile('projects/configs/bevformer/bevformer_tiny_wayve.py')
+#  cfg = Config.fromfile('projects/configs/bevformer/bevformer_small_wayve.py')
+cfg = Config.fromfile('/home/anindya/BEVFormer/work_dirs/bevformer_small_wayve_overfit/bevformer_small_wayve_overfit.py')
+cfg.data.train.ann_file = 'data/wayve/wayve_infos_temporal_train.pkl'
+cfg.data.train.use_vehicle_ref = True
+cfg.data.train.use_valid_flag = False
+cfg.data.train.data_root = 'data/wayve'
+cfg.data.train.queue_length = 1
+cfg.data.test.ann_file = 'data/wayve/wayve_infos_temporal_train.pkl'
+cfg.data.test.data_root = 'data/wayve'
 
 
 #  img_norm_cfg = dict(
@@ -55,11 +63,11 @@ cfg = Config.fromfile('projects/configs/bevformer/bevformer_tiny_wayve.py')
 
 
 # build the dataloader
-dataset = build_dataset(cfg.data.test)
+dataset = build_dataset(cfg.data.train)
 data_loader = build_dataloader(
     dataset,
     samples_per_gpu=1,
-    workers_per_gpu=cfg.data.workers_per_gpu,
+    workers_per_gpu=0, #cfg.data.workers_per_gpu,
     dist=True,
     shuffle=False,
     nonshuffler_sampler=cfg.data.nonshuffler_sampler,
@@ -71,7 +79,9 @@ args = cfg.model.copy()
 args.pop('type')
 # print(args)
 model = BEVFormer(**args)
-model.load_state_dict(torch.load('ckpts/bevformer_tiny_epoch_24.pth')['state_dict'])
+#  model.load_state_dict(torch.load('ckpts/bevformer_tiny_epoch_24.pth')['state_dict'])
+#  model.load_state_dict(torch.load('/home/anindya/BEVFormer/work_dirs/bevformer_small_wayve/epoch_1.pth')['state_dict'])
+model.load_state_dict(torch.load('/home/anindya/BEVFormer/work_dirs/bevformer_small_wayve_overfit/epoch_200.pth')['state_dict'])
 model = MMDataParallel(model) # necessary for model to handle nested data structure from dataloader
 model.eval()
 model.cuda()
@@ -80,18 +90,31 @@ model.cuda()
 # run inference
 output = []
 for i, data in tqdm(enumerate(data_loader)):
+    if i >= 2:
+        break
     with torch.no_grad():
         # print(data['img_metas'])
         # print(data['img'])
 
-        result = model(return_loss=False, rescale=True, **data)
-        output.append(
-            {'pts_bbox': {
-                'boxes_3d': result[0]['pts_bbox']['boxes_3d'].tensor,
-                'scores_3d': result[0]['pts_bbox']['scores_3d'],
-                'labels_3d': result[0]['pts_bbox']['labels_3d'],
-            }}
-        )
+        out = {}
+        # Save the labels
+        out['label_bbox'] = {
+            'boxes_3d': data['gt_bboxes_3d'].data[0][0].tensor,
+            'labels_3d': data['gt_labels_3d'].data[0][0],
+        }
+        import ipdb; ipdb.set_trace()
+        del data['gt_bboxes_3d']
+        del data['gt_labels_3d']
+
+        #  result = model(return_loss=False, rescale=True, **data)
+
+        #  # Save the predictions
+        #  out['pred_bbox'] = {
+            #  'boxes_3d': result[0]['pts_bbox']['boxes_3d'].tensor,
+            #  'scores_3d': result[0]['pts_bbox']['scores_3d'],
+            #  'labels_3d': result[0]['pts_bbox']['labels_3d'],
+        #  }
+        output.append(out)
         #  print(result)
         #  continue
 

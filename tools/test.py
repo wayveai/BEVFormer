@@ -193,7 +193,7 @@ def main():
     data_loader = build_dataloader(
         dataset,
         samples_per_gpu=samples_per_gpu,
-        workers_per_gpu=cfg.data.workers_per_gpu,
+        workers_per_gpu=0, #cfg.data.workers_per_gpu,
         dist=distributed,
         shuffle=False,
         nonshuffler_sampler=cfg.data.nonshuffler_sampler,
@@ -224,7 +224,8 @@ def main():
     if not distributed:
         #  assert False
         model = MMDataParallel(model, device_ids=[0])
-        outputs = single_gpu_test(model, data_loader, args.show, args.show_dir)
+        #  outputs = single_gpu_test(model, data_loader, args.show, args.show_dir)
+        outputs = custom_multi_gpu_test(model, data_loader, args.tmpdir, args.gpu_collect)
     else:
         model = MMDistributedDataParallel(
             model.cuda(),
@@ -233,20 +234,22 @@ def main():
         outputs = custom_multi_gpu_test(model, data_loader, args.tmpdir,
                                         args.gpu_collect)
 
-    rank, world_size = get_dist_info()
-    if args.out:
-        print(f'\nwriting results to {args.out}')
-        if world_size == 1:
-            mmcv.dump(outputs['bbox_results'], args.out)
-        else:
-            mmcv.dump(f"{outputs['bbox_results']}", args.out.replace('.pkl', f'_{rank}.pkl'))
+    rank = 0
+    #  rank, world_size = get_dist_info()
+    #  if args.out:
+        #  print(f'\nwriting results to {args.out}')
+        #  if world_size == 1:
+            #  mmcv.dump(outputs['bbox_results'], args.out)
+        #  else:
+            #  mmcv.dump(f"{outputs['bbox_results']}", args.out.replace('.pkl', f'_{rank}.pkl'))
 
     if rank == 0:
         kwargs = {} if args.eval_options is None else args.eval_options
         kwargs['jsonfile_prefix'] = osp.join('test', args.config.split(
             '/')[-1].split('.')[-2], time.ctime().replace(' ', '_').replace(':', '_'))
-        if args.format_only:
-            dataset.format_results(outputs, **kwargs)
+        #  if args.format_only:
+        import ipdb; ipdb.set_trace()
+        dataset.format_results(outputs, **kwargs)
 
         if args.eval:
             eval_kwargs = cfg.get('evaluation', {}).copy()

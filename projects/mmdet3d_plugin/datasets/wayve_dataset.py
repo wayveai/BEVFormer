@@ -159,15 +159,15 @@ class WayveDataset(CustomNuScenesDataset):
                     lidar2cam=lidar2cam_rts,
                 ))
 
-        annos = self.get_ann_info(index, info['ego2global_translation'], info['ego2global_rotation'])
-        #  import ipdb; ipdb.set_trace()
         if not self.test_mode:
-            annos = self.get_ann_info(index)
+            annos = self.get_ann_info(index, info['ego2global_translation'], info['ego2global_rotation'])
             input_dict['ann_info'] = annos
 
         return input_dict
 
     def get_ann_info(self, index, ego2global_t, ego2global_r):
+        #  import ipdb; ipdb.set_trace()
+
         info = self.data_infos[index]
         cuboids = self.data_infos[index]['gt_label_boxes']['cuboids']
         # filter out bbox containing no points
@@ -190,7 +190,7 @@ class WayveDataset(CustomNuScenesDataset):
         # [x,y,z,w,l,h,yaw,vx,vy,category,confidence,unique_id]
         def encode(cuboid) -> np.ndarray:
             x, y, z = cuboid['pose']['translation']['forward_left_up']
-            y_size, x_size, z_size = cuboid['size_wlh']
+            x_size, y_size, z_size = cuboid['size_wlh']
             yaw = -np.pi/2 - cuboid['pose']['rotation']['forward_left_up'][2]
             velocity = cuboid['velocity'] if cuboid['velocity'] is not None else [0., 0.]
             return np.array([x, y, z, x_size, y_size, z_size, yaw, *velocity])
@@ -199,6 +199,7 @@ class WayveDataset(CustomNuScenesDataset):
 
         # the nuscenes box center is [0.5, 0.5, 0.5], we change it to be
         # the same as KITTI (0.5, 0.5, 0)
+        #  import ipdb; ipdb.set_trace()
         gt_bboxes_3d = LiDARInstance3DBoxes(
             gt_bboxes_3d,
             box_dim=gt_bboxes_3d.shape[-1],
@@ -213,32 +214,3 @@ class WayveDataset(CustomNuScenesDataset):
             gt_labels_3d=gt_labels_3d,
             gt_names=gt_names_3d)
         return anns_results
-
-
-#  def show(self, results, out_dir, show=True, pipeline=None):
-    #  """Results visualization.
-
-    #  Args:
-        #  results (list[dict]): List of bounding boxes results.
-        #  out_dir (str): Output directory of visualization result.
-        #  show (bool): Visualize the results online.
-        #  pipeline (list[dict], optional): raw data loading for showing.
-            #  Default: None.
-    #  """
-    #  assert out_dir is not None, 'Expect out_dir, got none.'
-    #  pipeline = self._get_pipeline(pipeline)
-    #  for i, result in enumerate(results):
-        #  if 'pts_bbox' in result.keys():
-            #  result = result['pts_bbox']
-        #  data_info = self.data_infos[i]
-        #  pts_path = data_info['lidar_path']
-        #  file_name = osp.split(pts_path)[-1].split('.')[0]
-        #  points = self._extract_data(i, pipeline, 'points').numpy()
-        #  # for now we convert points into depth mode
-        #  points = Coord3DMode.convert_point(points, Coord3DMode.LIDAR, Coord3DMode.DEPTH)
-        #  inds = result['scores_3d'] > 0.1
-        #  gt_bboxes = self.get_ann_info(i)['gt_bboxes_3d'].tensor.numpy()
-        #  show_gt_bboxes = Box3DMode.convert(gt_bboxes, Box3DMode.LIDAR, Box3DMode.DEPTH)
-        #  pred_bboxes = result['boxes_3d'][inds].tensor.numpy()
-        #  show_pred_bboxes = Box3DMode.convert(pred_bboxes, Box3DMode.LIDAR, Box3DMode.DEPTH)
-        #  show_result(points, show_gt_bboxes, show_pred_bboxes, out_dir, file_name, show)
