@@ -41,7 +41,7 @@ _ffn_dim_ = _dim_*2
 _num_levels_ = 1
 bev_h_ = 150
 bev_w_ = 150
-queue_length = 1 # each sequence contains `queue_length` frames.
+queue_length = 3 # each sequence contains `queue_length` frames.
 
 model = dict(
     type='BEVFormer',
@@ -168,7 +168,7 @@ model = dict(
             pc_range=point_cloud_range))))
 
 dataset_type = 'WayveDataset'
-data_root = 'data/wayve_overfit/'
+data_root = 'data/wayve/'
 file_client_args = dict(backend='disk')
 
 
@@ -216,8 +216,7 @@ data = dict(
         classes=class_names,
         modality=input_modality,
         test_mode=False,
-        use_valid_flag=False,
-        use_vehicle_ref=True,
+        use_valid_flag=True,
         bev_size=(bev_h_, bev_w_),
         queue_length=queue_length,
         # we use box_type_3d='LiDAR' in kitti and wayve dataset
@@ -254,16 +253,16 @@ lr_config = dict(
     warmup_iters=500,
     warmup_ratio=1.0 / 3,
     min_lr_ratio=1e-3)
-total_epochs = 1000
-evaluation = dict(interval=1001, pipeline=test_pipeline)
+total_epochs = 24
+evaluation = dict(interval=1, pipeline=test_pipeline)
 
 runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)
 # load_from = 'ckpts/r101_dcn_fcos3d_pretrain.pth'
 log_config = dict(
-    interval=5,
+    interval=50,
     hooks=[
         dict(type='TextLoggerHook'),
         dict(type='TensorboardLoggerHook')
     ])
 
-checkpoint_config = dict(interval=200)
+checkpoint_config = dict(interval=1)
