@@ -70,7 +70,9 @@ RUN git clone https://github.com/open-mmlab/mmdetection3d.git \
 
 RUN python -m pip install --upgrade transforms3d numpy
 RUN apt-get install -y python3.8-tk
+RUN apt-get install -y yapf
 
 ENV PYTHONPATH "${PYTHONPATH}:/mmdetection3d"
+COPY . /BEVFormer
 WORKDIR /BEVFormer
-CMD CUDA_VISIBLE_DEVICES=6,7 ./tools/dist_train.sh ./projects/configs/bevformer/bevformer_small_wayve_overfit.py 2
+CMD ./tools/dist_train.sh ./projects/configs/bevformer/bevformer_small_wayve.py 8
