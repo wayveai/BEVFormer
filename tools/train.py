@@ -3,7 +3,7 @@
 # ---------------------------------------------
 #  Modified by Zhiqi Li
 # ---------------------------------------------
- 
+
 from __future__ import division
 
 import argparse
@@ -103,6 +103,11 @@ def main():
     args = parse_args()
 
     cfg = Config.fromfile(args.config)
+    out_path = os.environ.get('AZUREML_DATAREFERENCE_training_session_directory', None)
+    print(f'out path is: {out_path}')
+    if out_path is not None:
+        cfg.work_dir = osp.join(out_path, '2d/bevformer/bevformer_small_wayve')
+
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
     # import modules from string list.

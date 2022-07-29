@@ -277,7 +277,7 @@ log_config = dict(
            dict(type='TensorboardLoggerHook')])
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-work_dir = '/mnt/remote/wayve-datasets/databricks-users-datasets/bevformer_work_dirs/bevformer_small_wayve'
+work_dir = '/mnt/remote/azure_session_dir/2d/bevformer/bevformer_small_wayve'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]
