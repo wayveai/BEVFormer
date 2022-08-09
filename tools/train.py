@@ -6,6 +6,7 @@
 
 from __future__ import division
 
+from datetime import datetime
 import argparse
 import copy
 import mmcv
@@ -106,7 +107,9 @@ def main():
     out_path = os.environ.get('AZUREML_DATAREFERENCE_training_session_directory', None)
     print(f'out path is: {out_path}')
     if out_path is not None:
-        cfg.work_dir = osp.join(out_path, '2d/bevformer/bevformer_small_wayve')
+        cfg.work_dir = osp.join(
+            out_path, f'2d/bevformer/bevformer_small_wayve/{datetime.now().strftime("%Y_%m_%d__%H_%M_%S")}'
+        )
 
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
@@ -172,7 +175,7 @@ def main():
         distributed = True
         init_dist(args.launcher, **cfg.dist_params)
         # re-set gpu_ids with distributed training mode
-        _, world_size = get_dist_info()
+        rank, world_size = get_dist_info()
         cfg.gpu_ids = range(world_size)
 
     # create work_dir
@@ -222,6 +225,9 @@ def main():
         train_cfg=cfg.get('train_cfg'),
         test_cfg=cfg.get('test_cfg'))
     model.init_weights()
+    model.load_state_dict(
+        torch.load('/BEVFormer/ckpts/bevformer_r101_dcn_24ep.pth', map_location=f'cuda:{rank}')['state_dict']
+    )
 
     logger.info(f'Model:\n{model}')
     datasets = [build_dataset(cfg.data.train)]

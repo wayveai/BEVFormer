@@ -12,6 +12,7 @@ input_modality = dict(
     use_map=False,
     use_external=True)
 file_client_args = dict(backend='disk')
+queue_length = 3
 train_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
     dict(type='PhotoMetricDistortionMultiViewImage'),
@@ -91,8 +92,8 @@ eval_pipeline = [
     dict(type='Collect3D', keys=['points'])
 ]
 data = dict(
-    samples_per_gpu=2,
-    workers_per_gpu=4,
+    samples_per_gpu=4,
+    workers_per_gpu=6,
     train=dict(
         type='WayveDataset',
         data_root=data_root,
@@ -148,7 +149,7 @@ data = dict(
         test_mode=False,
         box_type_3d='LiDAR',
         bev_size=(150, 150),
-        queue_length=3),
+        queue_length=queue_length),
     val=dict(
         type='WayveDataset',
         data_root=data_root,
@@ -292,7 +293,6 @@ _ffn_dim_ = 512
 _num_levels_ = 1
 bev_h_ = 150
 bev_w_ = 150
-queue_length = 3
 model = dict(
     type='BEVFormer',
     use_grid_mask=True,

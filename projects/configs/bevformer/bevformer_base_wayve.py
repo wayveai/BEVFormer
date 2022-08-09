@@ -1,24 +1,11 @@
-_base_ = [
-    '../datasets/custom_wayve-3d.py',
-    '../_base_/default_runtime.py'
-]
-#
-plugin = True
-plugin_dir = 'projects/mmdet3d_plugin/'
-
-# If point cloud range is changed, the models should also change their point
-# cloud range accordingly
 point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
-voxel_size = [0.2, 0.2, 8]
 
-img_norm_cfg = dict(
-    mean=[103.530, 116.280, 123.675], std=[1.0, 1.0, 1.0], to_rgb=False
-)
-# For nuScenes we usually do 10-class detection
 class_names = [
     'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
     'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
 ]
+dataset_type = 'WayveDataset'
+data_root = '/mnt/remote/wayveprodperceptiondata/mmdet_cuboid_wayve'
 
 input_modality = dict(
     use_lidar=False,
@@ -26,6 +13,283 @@ input_modality = dict(
     use_radar=False,
     use_map=False,
     use_external=True)
+file_client_args = dict(backend='disk')
+queue_length = 4 # each sequence contains `queue_length` frames.
+
+train_pipeline = [
+    dict(type='LoadMultiViewImageFromFiles', to_float32=True),
+    dict(type='PhotoMetricDistortionMultiViewImage'),
+    dict(
+        type='LoadAnnotations3D',
+        with_bbox_3d=True,
+        with_label_3d=True,
+        with_attr_label=False),
+    dict(
+        type='ObjectRangeFilter',
+        point_cloud_range=[-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]),
+    dict(
+        type='ObjectNameFilter',
+        classes=[
+            'car', 'truck', 'construction_vehicle', 'bus', 'trailer',
+            'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
+        ]),
+    dict(
+        type='NormalizeMultiviewImage',
+        mean=[103.53, 116.28, 123.675],
+        std=[1.0, 1.0, 1.0],
+        to_rgb=False),
+    dict(type='RandomScaleImageMultiViewImage', scales=[0.8]),
+    dict(type='PadMultiViewImage', size_divisor=32),
+    dict(
+        type='DefaultFormatBundle3D',
+        class_names=[
+            'car', 'truck', 'construction_vehicle', 'bus', 'trailer',
+            'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
+        ]),
+    dict(type='CustomCollect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img'])
+]
+test_pipeline = [
+    dict(type='LoadMultiViewImageFromFiles', to_float32=True),
+    dict(
+        type='NormalizeMultiviewImage',
+        mean=[103.53, 116.28, 123.675],
+        std=[1.0, 1.0, 1.0],
+        to_rgb=False),
+    dict(
+        type='MultiScaleFlipAug3D',
+        img_scale=(1600, 900),
+        pts_scale_ratio=1,
+        flip=False,
+        transforms=[
+            dict(type='RandomScaleImageMultiViewImage', scales=[0.8]),
+            dict(type='PadMultiViewImage', size_divisor=32),
+            dict(
+                type='DefaultFormatBundle3D',
+                class_names=[
+                    'car', 'truck', 'construction_vehicle', 'bus', 'trailer',
+                    'barrier', 'motorcycle', 'bicycle', 'pedestrian',
+                    'traffic_cone'
+                ],
+                with_label=False),
+            dict(type='CustomCollect3D', keys=['img'])
+        ])
+]
+eval_pipeline = [
+    dict(
+        type='LoadPointsFromFile',
+        coord_type='LIDAR',
+        load_dim=5,
+        use_dim=5,
+        file_client_args=dict(backend='disk')),
+    dict(
+        type='LoadPointsFromMultiSweeps',
+        sweeps_num=10,
+        file_client_args=dict(backend='disk')),
+    dict(
+        type='DefaultFormatBundle3D',
+        class_names=[
+            'car', 'truck', 'trailer', 'bus', 'construction_vehicle',
+            'bicycle', 'motorcycle', 'pedestrian', 'traffic_cone', 'barrier'
+        ],
+        with_label=False),
+    dict(type='Collect3D', keys=['points'])
+]
+data = dict(
+    samples_per_gpu=2,
+    workers_per_gpu=6,
+    train=dict(
+        type='WayveDataset',
+        data_root=data_root,
+        use_valid_flag=False,
+        use_vehicle_ref=True,
+        ann_file=data_root + '/wayve_infos_temporal_train.pkl',
+        pipeline=[
+            dict(type='LoadMultiViewImageFromFiles', to_float32=True),
+            dict(type='PhotoMetricDistortionMultiViewImage'),
+            dict(
+                type='LoadAnnotations3D',
+                with_bbox_3d=True,
+                with_label_3d=True,
+                with_attr_label=False),
+            dict(
+                type='ObjectRangeFilter',
+                point_cloud_range=[-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]),
+            dict(
+                type='ObjectNameFilter',
+                classes=[
+                    'car', 'truck', 'construction_vehicle', 'bus', 'trailer',
+                    'barrier', 'motorcycle', 'bicycle', 'pedestrian',
+                    'traffic_cone'
+                ]),
+            dict(
+                type='NormalizeMultiviewImage',
+                mean=[103.53, 116.28, 123.675],
+                std=[1.0, 1.0, 1.0],
+                to_rgb=False),
+            dict(type='RandomScaleImageMultiViewImage', scales=[0.8]),
+            dict(type='PadMultiViewImage', size_divisor=32),
+            dict(
+                type='DefaultFormatBundle3D',
+                class_names=[
+                    'car', 'truck', 'construction_vehicle', 'bus', 'trailer',
+                    'barrier', 'motorcycle', 'bicycle', 'pedestrian',
+                    'traffic_cone'
+                ]),
+            dict(
+                type='CustomCollect3D',
+                keys=['gt_bboxes_3d', 'gt_labels_3d', 'img'])
+        ],
+        classes=[
+            'car', 'truck', 'construction_vehicle', 'bus', 'trailer',
+            'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
+        ],
+        modality=dict(
+            use_lidar=False,
+            use_camera=True,
+            use_radar=False,
+            use_map=False,
+            use_external=True),
+        test_mode=False,
+        box_type_3d='LiDAR',
+        bev_size=(150, 150),
+        queue_length=queue_length),
+    val=dict(
+        type='WayveDataset',
+        data_root=data_root,
+        use_valid_flag=False,
+        use_vehicle_ref=True,
+        ann_file=data_root + '/wayve_infos_temporal_train.pkl',
+        pipeline=[
+            dict(type='LoadMultiViewImageFromFiles', to_float32=True),
+            dict(
+                type='NormalizeMultiviewImage',
+                mean=[103.53, 116.28, 123.675],
+                std=[1.0, 1.0, 1.0],
+                to_rgb=False),
+            dict(
+                type='MultiScaleFlipAug3D',
+                img_scale=(1600, 900),
+                pts_scale_ratio=1,
+                flip=False,
+                transforms=[
+                    dict(type='RandomScaleImageMultiViewImage', scales=[0.8]),
+                    dict(type='PadMultiViewImage', size_divisor=32),
+                    dict(
+                        type='DefaultFormatBundle3D',
+                        class_names=[
+                            'car', 'truck', 'construction_vehicle', 'bus',
+                            'trailer', 'barrier', 'motorcycle', 'bicycle',
+                            'pedestrian', 'traffic_cone'
+                        ],
+                        with_label=False),
+                    dict(type='CustomCollect3D', keys=['img'])
+                ])
+        ],
+        classes=[
+            'car', 'truck', 'construction_vehicle', 'bus', 'trailer',
+            'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
+        ],
+        modality=dict(
+            use_lidar=False,
+            use_camera=True,
+            use_radar=False,
+            use_map=False,
+            use_external=True),
+        test_mode=True,
+        box_type_3d='LiDAR',
+        bev_size=(150, 150),
+        samples_per_gpu=1),
+    test=dict(
+        type='WayveDataset',
+        data_root=data_root,
+        use_valid_flag=False,
+        use_vehicle_ref=True,
+        ann_file=data_root + '/wayve_infos_temporal_train.pkl',
+        pipeline=[
+            dict(type='LoadMultiViewImageFromFiles', to_float32=True),
+            dict(
+                type='NormalizeMultiviewImage',
+                mean=[103.53, 116.28, 123.675],
+                std=[1.0, 1.0, 1.0],
+                to_rgb=False),
+            dict(
+                type='MultiScaleFlipAug3D',
+                img_scale=(1600, 900),
+                pts_scale_ratio=1,
+                flip=False,
+                transforms=[
+                    dict(type='RandomScaleImageMultiViewImage', scales=[0.8]),
+                    dict(type='PadMultiViewImage', size_divisor=32),
+                    dict(
+                        type='DefaultFormatBundle3D',
+                        class_names=[
+                            'car', 'truck', 'construction_vehicle', 'bus',
+                            'trailer', 'barrier', 'motorcycle', 'bicycle',
+                            'pedestrian', 'traffic_cone'
+                        ],
+                        with_label=False),
+                    dict(type='CustomCollect3D', keys=['img'])
+                ])
+        ],
+        classes=[
+            'car', 'truck', 'construction_vehicle', 'bus', 'trailer',
+            'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
+        ],
+        modality=dict(
+            use_lidar=False,
+            use_camera=True,
+            use_radar=False,
+            use_map=False,
+            use_external=True),
+        test_mode=True,
+        box_type_3d='LiDAR',
+        bev_size=(150, 150)),
+    shuffler_sampler=dict(type='DistributedGroupSampler'),
+    nonshuffler_sampler=dict(type='DistributedSampler'))
+evaluation = dict(
+    interval=30,
+    pipeline=[
+        dict(type='LoadMultiViewImageFromFiles', to_float32=True),
+        dict(
+            type='NormalizeMultiviewImage',
+            mean=[103.53, 116.28, 123.675],
+            std=[1.0, 1.0, 1.0],
+            to_rgb=False),
+        dict(
+            type='MultiScaleFlipAug3D',
+            img_scale=(1600, 900),
+            pts_scale_ratio=1,
+            flip=False,
+            transforms=[
+                dict(type='RandomScaleImageMultiViewImage', scales=[0.8]),
+                dict(type='PadMultiViewImage', size_divisor=32),
+                dict(
+                    type='DefaultFormatBundle3D',
+                    class_names=[
+                        'car', 'truck', 'construction_vehicle', 'bus',
+                        'trailer', 'barrier', 'motorcycle', 'bicycle',
+                        'pedestrian', 'traffic_cone'
+                    ],
+                    with_label=False),
+                dict(type='CustomCollect3D', keys=['img'])
+            ])
+    ])
+checkpoint_config = dict(interval=1)
+log_config = dict(
+    interval=50,
+    hooks=[dict(type='TextLoggerHook'),
+           dict(type='TensorboardLoggerHook')])
+dist_params = dict(backend='nccl')
+log_level = 'INFO'
+work_dir = '/mnt/remote/azure_session_dir/2d/bevformer/bevformer_wayve'
+load_from = None
+resume_from = None
+workflow = [('train', 1)]
+plugin = True
+plugin_dir = 'projects/mmdet3d_plugin/'
+voxel_size = [0.2, 0.2, 8]
+img_norm_cfg = dict(
+    mean=[103.53, 116.28, 123.675], std=[1.0, 1.0, 1.0], to_rgb=False)
 
 _dim_ = 256
 _pos_dim_ = _dim_//2
@@ -33,7 +297,6 @@ _ffn_dim_ = _dim_*2
 _num_levels_ = 4
 bev_h_ = 200
 bev_w_ = 200
-queue_length = 4 # each sequence contains `queue_length` frames.
 
 model = dict(
     type='BEVFormer',
@@ -158,56 +421,18 @@ model = dict(
             iou_cost=dict(type='IoUCost', weight=0.0), # Fake cost. This is just to make it compatible with DETR head.
             pc_range=point_cloud_range))))
 
-# Update the data dictionary
-data = dict(
-    samples_per_gpu=1,
-    workers_per_gpu=4,
-    shuffler_sampler=dict(type='DistributedGroupSampler'),
-    nonshuffler_sampler=dict(type='DistributedSampler'),
-    train=dict(
-        bev_size=(bev_h_, bev_w_),
-        queue_length=queue_length,
-        # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
-        # and box_type_3d='Depth' in sunrgbd and scannet dataset.
-    ),
-    val=dict(
-         samples_per_gpu=1,
-         bev_size=(bev_h_, bev_w_),
-    ),
-    test=dict(bev_size=(bev_h_, bev_w_)),
-)
-
 optimizer = dict(
     type='AdamW',
-    lr=2e-4,
-    paramwise_cfg=dict(
-        custom_keys={
-            'img_backbone': dict(lr_mult=0.1),
-        }),
-    weight_decay=0.01,
-)
-
+    lr=0.0002,
+    paramwise_cfg=dict(custom_keys=dict(img_backbone=dict(lr_mult=0.1))),
+    weight_decay=0.01)
 optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
-
-# learning policy
 lr_config = dict(
     policy='CosineAnnealing',
     warmup='linear',
     warmup_iters=500,
-    warmup_ratio=1.0 / 3,
-    min_lr_ratio=1e-3,
-)
+    warmup_ratio=0.3333333333333333,
+    min_lr_ratio=0.001)
 total_epochs = 24
-evaluation = dict(interval=1)
-
-runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)
-load_from = 'ckpts/r101_dcn_fcos3d_pretrain.pth'
-log_config = dict(
-    interval=50,
-    hooks=[
-        dict(type='TextLoggerHook'),
-        dict(type='TensorboardLoggerHook')
-    ])
-
-checkpoint_config = dict(interval=1)
-
+runner = dict(type='EpochBasedRunner', max_epochs=24)
+#  gpu_ids = range(0, 2)
