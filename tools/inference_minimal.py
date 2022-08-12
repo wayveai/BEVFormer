@@ -12,10 +12,13 @@ from mmdet3d.datasets import build_dataset
 from projects.mmdet3d_plugin.datasets.builder import build_dataloader
 
 
+session_dir = '/mnt/remote/azure_session_dir/2d/bevformer/bevformer_small_wayve'
 epoch = 7
 #  cfg = Config.fromfile('projects/configs/bevformer/bevformer_small_wayve.py')
 #  cfg = Config.fromfile('/home/fergal/repos/zhiqi-li/BEVFormer/work_dirs/bevformer_small_wayve_overfit/bevformer_small_wayve_overfit.py')
-cfg = Config.fromfile('/mnt/remote/azure_session_dir/2d/bevformer/bevformer_small_wayve/bevformer_small_wayve.py')
+#  cfg = Config.fromfile('/mnt/remote/azure_session_dir/2d/bevformer/bevformer_small_wayve/bevformer_small_wayve.py')
+#  cfg = Config.fromfile('/mnt/remote/azure_session_dir/2d/bevformer/bevformer_small_wayve/bevformer_small_wayve.py')
+cfg = Config.fromfile(f'{session_dir}/bevformer_small_wayve.py')
 cfg.data.train.ann_file = 'data/wayve/wayve_infos_temporal_train.pkl'
 cfg.data.train.data_root = 'data/wayve'
 cfg.data.test.ann_file = 'data/wayve/wayve_infos_temporal_train.pkl'
@@ -82,7 +85,8 @@ model = BEVFormer(**args)
 #  model.load_state_dict(torch.load('ckpts/bevformer_small_epoch_24.pth')['state_dict'])
 #  model.load_state_dict(torch.load('ckpts/bevformer_small_epoch_24.pth')['state_dict'])
 #  model.load_state_dict(torch.load(f'/mnt/remote/azure_session_dir/2d/bevformer/bevformer_small_wayve/epoch_{epoch}.pth')['state_dict'])
-model.load_state_dict(torch.load(f'/mnt/remote/azure_session_dir/2d/bevformer/bevformer_small_wayve/epoch_{epoch}.pth')['state_dict'])
+#  model.load_state_dict(torch.load(f'/mnt/remote/azure_session_dir/2d/bevformer/bevformer_small_wayve/epoch_{epoch}.pth')['state_dict'])
+model.load_state_dict(torch.load(f'{session_dir}/epoch_{epoch}.pth')['state_dict'])
 #  /mnt/remote/azure_session_dir/2d/bevformer/bevformer_small_wayve/
 #  model.load_state_dict(torch.load('/home/anindya/BEVFormer/work_dirs/bevformer_small_wayve/epoch_1.pth')['state_dict'])
 #  model.load_state_dict(torch.load('/home/fergal/repos/zhiqi-li/BEVFormer/work_dirs/bevformer_small_wayve_overfit/epoch_1000.pth')['state_dict'])

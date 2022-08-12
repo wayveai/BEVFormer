@@ -95,7 +95,7 @@ eval_pipeline = [
     dict(type='Collect3D', keys=['points'])
 ]
 data = dict(
-    samples_per_gpu=2,
+    samples_per_gpu=1,
     workers_per_gpu=6,
     train=dict(
         type='WayveDataset',
@@ -281,7 +281,7 @@ log_config = dict(
            dict(type='TensorboardLoggerHook')])
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-work_dir = '/mnt/remote/azure_session_dir/2d/bevformer/bevformer_wayve'
+work_dir = '/mnt/remote/azure_session_dir/2d/bevformer/bevformer_base_wayve'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]
