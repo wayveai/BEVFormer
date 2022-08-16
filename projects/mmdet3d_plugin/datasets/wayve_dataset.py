@@ -16,7 +16,6 @@ from mmdet3d.core.bbox import Box3DMode, Coord3DMode, LiDARInstance3DBoxes
 from projects.mmdet3d_plugin.utils import Transform
 
 from .nuscenes_dataset import CustomNuScenesDataset
-from mmdet3d.datasets.nuscenes_dataset import output_to_nusc_box
 
 
 camera_order = [
@@ -63,7 +62,7 @@ class WayveDataset(CustomNuScenesDataset):
         """
         with open(ann_file, 'rb') as f:
             data = pickle.load(f)
-        data = data[:2]
+        #  data = data[:2]
 
         # Make a mapping so that we can load a sample given its 'token'
         self.token_mapping = {d['token']: i for i, d in enumerate(data)}
@@ -182,7 +181,7 @@ class WayveDataset(CustomNuScenesDataset):
         if self.use_valid_flag:
             mask = [cuboid['visibility'] != '0%' for cuboid in cuboids]
         else:
-            mask = [cuboid['num_of_points'] > 0 for cuboid in cuboids]
+            mask = [cuboid['num_of_points'] > 5 for cuboid in cuboids]
         cuboids = list(compress(cuboids, mask))
 
         gt_names_3d = [cuboid['category'] for cuboid in cuboids]
@@ -237,13 +236,14 @@ class WayveDataset(CustomNuScenesDataset):
         """
         wayve_annos = {}
         wayve_labels = {}
+        egopose = {}
         mapped_class_names = self.CLASSES
 
         print('Start to convert detection format...')
         for sample_id, det in enumerate(mmcv.track_iter_progress(results)):
             annos = []
             labels = []
-            boxes = output_to_nusc_box(det, None)
+            boxes = output_to_nusc_box(det)
             sample_token = self.data_infos[sample_id]['token']
             boxes = lidar_box_to_global(
                 self.data_infos[sample_id],
@@ -264,26 +264,30 @@ class WayveDataset(CustomNuScenesDataset):
                 )
                 annos.append(wayve_anno)
 
-            label_info = self.get_ann_info(sample_id)
-            label_boxes = output_to_nusc_box(None, label_info)
-            label_boxes = lidar_box_to_global(self.data_infos[sample_id], label_boxes)
-
-            # Also collect and dump out the labels json
-            for _, box in enumerate(label_boxes):
-                name = mapped_class_names[box.label]
+            # Collect and dump out the labels json
+            cuboids = self.data_infos[sample_id]['gt_label_boxes']['cuboids']
+            for i, box in enumerate(cuboids):
                 wayve_anno = dict(
                     sample_token=sample_token,
-                    translation=box.center.tolist(),
-                    size=box.wlh.tolist(),
-                    rotation=box.orientation.elements.tolist(),
-                    velocity=box.velocity[:2].tolist(),
-                    detection_name=name,
+                    translation=box['pose']['translation']['forward_left_up'],
+                    size=box['size_wlh'],
+                    rotation=Quaternion(axis=[0, 0, 1], radians=box['pose']['rotation']['forward_left_up'][2]).elements.tolist(),
+                    velocity=box['velocity'],
+                    detection_name=box['category'],
+                    num_pts=box['num_of_points'],
                     attribute_name='',
                 )
+
                 labels.append(wayve_anno)
 
             wayve_annos[sample_token] = annos
             wayve_labels[sample_token] = labels
+
+            scalar_first = [self.data_infos[sample_id]['ego2global_rotation'][-1], *self.data_infos[sample_id]['ego2global_rotation'][:-1]]
+            egopose[sample_token] = {
+                'ego2global_rotation': scalar_first,
+                'ego2global_translation': self.data_infos[sample_id]['ego2global_translation'],
+            }
 
         submissions = {
             'meta': self.modality,
@@ -292,6 +296,7 @@ class WayveDataset(CustomNuScenesDataset):
         labels = {
             'meta': self.modality,
             'labels': wayve_labels,
+            'egoposes': egopose,
         }
 
         mmcv.mkdir_or_exist(jsonfile_prefix)
@@ -307,7 +312,7 @@ class WayveDataset(CustomNuScenesDataset):
         return res_path
 
 
-def output_to_nusc_box(detection=None, labels=None):
+def output_to_nusc_box(detection):
     """Convert the output to the box class in the nuScenes.
 
     Args:
@@ -320,14 +325,9 @@ def output_to_nusc_box(detection=None, labels=None):
     Returns:
         list[:obj:`NuScenesBox`]: List of standard NuScenesBoxes.
     """
-    if detection is not None:
-        box3d = detection['boxes_3d']
-        scores = detection['scores_3d'].numpy()
-        labels = detection['labels_3d'].numpy()
-    else:
-        box3d = labels['gt_bboxes_3d']
-        labels = labels['gt_labels_3d']
-        scores = None
+    box3d = detection['boxes_3d']
+    scores = detection['scores_3d'].numpy()
+    labels = detection['labels_3d'].numpy()
 
     box_gravity_center = box3d.gravity_center.numpy()
     box_dims = box3d.dims.numpy()
@@ -350,7 +350,8 @@ def output_to_nusc_box(detection=None, labels=None):
             quat,
             label=labels[i],
             score=scores[i] if scores is not None else np.nan,
-            velocity=velocity)
+            velocity=velocity
+        )
         box_list.append(box)
     return box_list
 
@@ -374,11 +375,13 @@ def lidar_box_to_global(
     for box in boxes:
         if not vehicle_ref:
             # Move box to ego vehicle coord system
-            box.rotate(Quaternion(info['lidar2ego_rotation']))
+            scalar_first = [info['lidar2ego_rotation'][-1], *info['lidar2ego_rotation'][:-1]]
+            box.rotate(Quaternion(scalar_first))
             box.translate(np.array(info['lidar2ego_translation']))
 
+        scalar_first = [info['ego2global_rotation'][-1], *info['ego2global_rotation'][:-1]]
         # Move box to global coord system
-        box.rotate(Quaternion(info['ego2global_rotation']))
+        box.rotate(Quaternion(scalar_first))
         box.translate(np.array(info['ego2global_translation']))
         box_list.append(box)
     return box_list
