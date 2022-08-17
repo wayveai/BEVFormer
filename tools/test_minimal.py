@@ -146,6 +146,7 @@ class WayveDetectionEval(DetectionEval):
 
         # Add center distances.
         self.pred_boxes = add_center_dist(self.pred_boxes, data['egoposes'])
+        self.meta = {}
         self.gt_boxes = add_center_dist(self.gt_boxes, data['egoposes'])
 
         # Filter boxes (distance, points per box, etc.).
@@ -222,4 +223,4 @@ if __name__ == '__main__':
         'test/bevformer_small_wayve/Wed_Aug_17_09_27_00_2022/pts_bbox/labels_wayve.json',
         'test/bevformer_small_wayve/Tue_Aug_16_21_32_42_2022/pts_bbox',
     )
-    de.main()
+    de.main(render_curves=False)
