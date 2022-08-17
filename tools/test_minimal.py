@@ -2,6 +2,7 @@ from typing import Tuple, Dict, List
 import json
 import pickle
 import os
+import argparse
 from nuscenes import NuScenes
 from nuscenes.eval.detection.evaluate import DetectionEval
 from nuscenes.eval.detection.data_classes import DetectionConfig
@@ -206,7 +207,15 @@ def add_center_dist(eval_boxes: EvalBoxes, egoposes: dict):
     return eval_boxes
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='MMDet test (and eval) a model')
+    parser.add_argument('test_dir', help='file to load results, labels and to put outputs')
+    args = parser.parse_args()
+    return args
+
+
 if __name__ == '__main__':
+    args = parse_args()
     dc =  WayveDetectionConfig(
         class_ranges,
         dist_fcn='center_distance',
@@ -219,8 +228,8 @@ if __name__ == '__main__':
     )
     de = WayveDetectionEval(
         dc,
-        'test/bevformer_small_wayve/Wed_Aug_17_09_27_00_2022/pts_bbox/results_wayve.json',
-        'test/bevformer_small_wayve/Wed_Aug_17_09_27_00_2022/pts_bbox/labels_wayve.json',
-        'test/bevformer_small_wayve/Tue_Aug_16_21_32_42_2022/pts_bbox',
+        os.path.join(args.test_dir, 'results_wayve.json'),
+        os.path.join(args.test_dir, 'labels_wayve.json'),
+        args.test_dir,
     )
     de.main(render_curves=False)
