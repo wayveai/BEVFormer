@@ -247,9 +247,8 @@ def main():
         kwargs = {} if args.eval_options is None else args.eval_options
         kwargs['jsonfile_prefix'] = osp.join('test', args.config.split(
             '/')[-1].split('.')[-2], time.ctime().replace(' ', '_').replace(':', '_'))
-        #  if args.format_only:
-        import ipdb; ipdb.set_trace()
-        dataset.format_results(outputs, **kwargs)
+        if args.format_only:
+            dataset.format_results(outputs, **kwargs)
 
         if args.eval:
             eval_kwargs = cfg.get('evaluation', {}).copy()

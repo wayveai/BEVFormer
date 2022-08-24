@@ -137,6 +137,7 @@ class WayveDetectionEval(DetectionEval):
         # Load data.
         with open(result_path, 'r') as f:
             data = json.load(f)
+        import ipdb; ipdb.set_trace()
         self.pred_boxes = EvalBoxes.deserialize(data['results'], WayveDetectionBox)
         with open(label_path, 'r') as f:
             data = json.load(f)
@@ -163,17 +164,21 @@ class WayveDetectionEval(DetectionEval):
 def filter_boxes(eval_boxes, max_dist: dict, verbose: bool = True):
     total, dist_filter, point_filter, bike_rack_filter = 0, 0, 0, 0
     for ind, sample_token in enumerate(eval_boxes.sample_tokens):
+        # filter unknowns
+        eval_boxes.boxes[sample_token] = [box for box in eval_boxes[sample_token] if box.detection_name != 'unknown']
+
         # Filter on distance first.
         total += len(eval_boxes[sample_token])
         eval_boxes.boxes[sample_token] = [
             box for box in eval_boxes[sample_token]
-            if box.ego_dist < max_dist[getattr(eval_boxes[sample_token][0], 'detection_name')]
+            if box.ego_dist < max_dist[box.detection_name]
         ]
         dist_filter += len(eval_boxes[sample_token])
 
         # Then remove boxes with zero points in them. Eval boxes have -1 points by default.
         eval_boxes.boxes[sample_token] = [box for box in eval_boxes[sample_token] if not box.num_pts == 0]
         point_filter += len(eval_boxes[sample_token])
+
 
     if verbose:
         print("=> Original number of boxes: %d" % total)
@@ -228,8 +233,8 @@ if __name__ == '__main__':
     )
     de = WayveDetectionEval(
         dc,
-        os.path.join(args.test_dir, 'results_wayve.json'),
-        os.path.join(args.test_dir, 'labels_wayve.json'),
+        os.path.join(args.test_dir, 'results_wayve2.json'),
+        os.path.join(args.test_dir, 'labels_wayve2.json'),
         args.test_dir,
     )
     de.main(render_curves=False)

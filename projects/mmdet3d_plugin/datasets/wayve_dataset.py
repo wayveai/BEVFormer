@@ -26,15 +26,31 @@ camera_order = [
     'back-left-leftward',
     'back-right-rightward',
 ]
+mapping = {
+    'car': 0,
+    'bus': 3,
+    'van': 0,
+    'truck': 1,
+    'pedestrian': 7,
+    'bicyle': 5,
+    'motorcycle': 6,
+    'scooter': 6,
+    'cyclist': 5,
+    'motorcyclist': 6,
+    'scooterist': 6,
+}
 
 
 @DATASETS.register_module()
 class WayveDataset(CustomNuScenesDataset):
-    CLASSES = (
-        'car', 'bus', 'van', 'truck', 'bicycle', 'motorcycle', 'scooter',
-        'cyclist', 'motorcyclist', 'scooterist', 'pedestrian', 'traffic_light',
-        'unknown',
-    )
+    CLASSES = ('car', 'truck', 'trailer', 'bus', 'construction_vehicle',
+               'bicycle', 'motorcycle', 'pedestrian', 'traffic_cone',
+               'barrier')
+    #  CLASSES = (
+        #  'car', 'bus', 'van', 'truck', 'bicycle', 'motorcycle', 'scooter',
+        #  'cyclist', 'motorcyclist', 'scooterist', 'pedestrian', 'traffic_light',
+        #  'unknown',
+    #  )
     def __init__(
         self,
         use_vehicle_ref=False,
@@ -49,6 +65,7 @@ class WayveDataset(CustomNuScenesDataset):
         kwargs['queue_length'] = queue_length
         kwargs['bev_size'] = bev_size
         kwargs['overlap_test'] = overlap_test
+        self.version = 0.1
         super().__init__(*args, **kwargs)
 
     def load_annotations(self, ann_file):
@@ -62,7 +79,7 @@ class WayveDataset(CustomNuScenesDataset):
         """
         with open(ann_file, 'rb') as f:
             data = pickle.load(f)
-        #  data = data[:2]
+        data = data[:2]
 
         # Make a mapping so that we can load a sample given its 'token'
         self.token_mapping = {d['token']: i for i, d in enumerate(data)}
@@ -188,7 +205,8 @@ class WayveDataset(CustomNuScenesDataset):
         gt_labels_3d = []
         for cat in gt_names_3d:
             if cat in self.CLASSES:
-                gt_labels_3d.append(self.CLASSES.index(cat))
+                #  gt_labels_3d.append(self.CLASSES.index(cat))
+                gt_labels_3d.append(mapping[cat])
             else:
                 gt_labels_3d.append(-1)
         gt_labels_3d = np.array(gt_labels_3d)
@@ -292,6 +310,7 @@ class WayveDataset(CustomNuScenesDataset):
         submissions = {
             'meta': self.modality,
             'results': wayve_annos,
+            'egoposes': egopose,
         }
         labels = {
             'meta': self.modality,
@@ -310,6 +329,13 @@ class WayveDataset(CustomNuScenesDataset):
             json.dump(labels, f, indent=2)
 
         return res_path
+
+    def _evaluate_single(self,
+                         result_path,
+                         logger=None,
+                         metric='bbox',
+                         result_name='pts_bbox'):
+
 
 
 def output_to_nusc_box(detection):
