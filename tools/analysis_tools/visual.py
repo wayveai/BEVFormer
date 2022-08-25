@@ -4,6 +4,7 @@
 # ---------------------------------------------
 
 import mmcv
+import os.path as osp
 from nuscenes.nuscenes import NuScenes
 from PIL import Image
 from nuscenes.utils.geometry_utils import view_points, box_in_image, BoxVisibility, transform_matrix
@@ -416,6 +417,7 @@ def render_sample_data(
             assert False
         elif sensor_modality == 'camera':
             # Load boxes and image.
+            import ipdb; ipdb.set_trace()
             boxes = [Box(record['translation'], record['size'], Quaternion(record['rotation']),
                          name=record['detection_name'], token='predicted') for record in
                      pred_data['results'][sample_toekn] if record['detection_score'] > 0.2]
@@ -469,9 +471,14 @@ def render_sample_data(
     plt.close()
 
 if __name__ == '__main__':
-    nusc = NuScenes(version='v1.0-trainval', dataroot='./data/nuscenes', verbose=True)
+    nusc = NuScenes(version='v1.0-mini', dataroot='./data/nuscenes_mini', verbose=True)
     # render_annotation('7603b030b42a4b1caa8c443ccc1a7d52')
-    bevformer_results = mmcv.load('test/bevformer_base/Thu_Jun__9_16_22_37_2022/pts_bbox/results_nusc.json')
+    #  bevformer_results = mmcv.load('test/bevformer_base/Thu_Jun__9_16_22_37_2022/pts_bbox/results_nusc.json')
+    bevformer_results = mmcv.load('test/bevformer_base/Tue_Jun_28_13_57_25_2022/pts_bbox/results_nusc.json')
     sample_token_list = list(bevformer_results['results'].keys())
     for id in range(0, 10):
-        render_sample_data(sample_token_list[id], pred_data=bevformer_results, out_path=sample_token_list[id])
+        render_sample_data(
+            sample_token_list[id],
+            pred_data=bevformer_results,
+            out_path=osp.join('vis', sample_token_list[id])
+        )

@@ -16,6 +16,7 @@ from mmdet3d.core.bbox import Box3DMode, Coord3DMode, LiDARInstance3DBoxes
 from projects.mmdet3d_plugin.utils import Transform
 
 from .nuscenes_dataset import CustomNuScenesDataset
+from .wayve_eval import WayveDetectionEval
 
 
 camera_order = [
@@ -32,7 +33,7 @@ mapping = {
     'van': 0,
     'truck': 1,
     'pedestrian': 7,
-    'bicyle': 5,
+    'bicycle': 5,
     'motorcycle': 6,
     'scooter': 6,
     'cyclist': 5,
@@ -79,7 +80,6 @@ class WayveDataset(CustomNuScenesDataset):
         """
         with open(ann_file, 'rb') as f:
             data = pickle.load(f)
-        data = data[:2]
 
         # Make a mapping so that we can load a sample given its 'token'
         self.token_mapping = {d['token']: i for i, d in enumerate(data)}
@@ -291,7 +291,7 @@ class WayveDataset(CustomNuScenesDataset):
                     size=box['size_wlh'],
                     rotation=Quaternion(axis=[0, 0, 1], radians=box['pose']['rotation']['forward_left_up'][2]).elements.tolist(),
                     velocity=box['velocity'],
-                    detection_name=box['category'],
+                    detection_name=self.CLASSES[mapping[box['category']]],
                     num_pts=box['num_of_points'],
                     attribute_name='',
                 )
@@ -335,7 +335,33 @@ class WayveDataset(CustomNuScenesDataset):
                          logger=None,
                          metric='bbox',
                          result_name='pts_bbox'):
+        output_dir = osp.join(*osp.split(result_path)[:-1])
 
+        self.wayve_eval = WayveDetectionEval(
+            self.eval_detection_configs,
+            result_path=result_path,
+            label_path=osp.join(output_dir, 'labels_wayve.json'),
+            output_dir=output_dir,
+        )
+        self.wayve_eval.main(plot_examples=0, render_curves=False)
+        # record metrics
+        metrics = mmcv.load(osp.join(output_dir, 'metrics_summary.json'))
+        detail = dict()
+        metric_prefix = f'{result_name}_NuScenes'
+        for name in self.CLASSES:
+            for k, v in metrics['label_aps'][name].items():
+                val = float('{:.4f}'.format(v))
+                detail['{}/{}_AP_dist_{}'.format(metric_prefix, name, k)] = val
+            for k, v in metrics['label_tp_errors'][name].items():
+                val = float('{:.4f}'.format(v))
+                detail['{}/{}_{}'.format(metric_prefix, name, k)] = val
+            for k, v in metrics['tp_errors'].items():
+                val = float('{:.4f}'.format(v))
+                detail['{}/{}'.format(metric_prefix,
+                                      self.ErrNameMapping[k])] = val
+        detail['{}/NDS'.format(metric_prefix)] = metrics['nd_score']
+        detail['{}/mAP'.format(metric_prefix)] = metrics['mean_ap']
+        return detail
 
 
 def output_to_nusc_box(detection):

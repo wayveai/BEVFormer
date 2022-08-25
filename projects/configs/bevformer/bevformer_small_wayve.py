@@ -238,11 +238,7 @@ evaluation = dict(
     interval=1,
     pipeline=[
         dict(type='LoadMultiViewImageFromFiles', to_float32=True),
-        dict(
-            type='NormalizeMultiviewImage',
-            mean=[103.53, 116.28, 123.675],
-            std=[1.0, 1.0, 1.0],
-            to_rgb=False),
+        dict(type='NormalizeMultiviewImage', **img_norm_cfg),
         dict(
             type='MultiScaleFlipAug3D',
             img_scale=(1600, 900),

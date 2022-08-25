@@ -73,6 +73,11 @@ RUN apt-get install -y python3.8-tk
 RUN apt-get install -y yapf
 
 ENV PYTHONPATH "${PYTHONPATH}:/mmdetection3d"
-COPY . /BEVFormer
+RUN mkdir /BEVFormer
+COPY ./ckpts /BEVFormer/ckpts
+COPY ./projects /BEVFormer/projects
+COPY ./tools /BEVFormer/tools
+COPY ./vis /BEVFormer/vis
+
 WORKDIR /BEVFormer
 CMD ./tools/dist_train.sh ./projects/configs/bevformer/bevformer_small_wayve.py 8

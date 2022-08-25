@@ -1,9 +1,7 @@
-from typing import Tuple, Dict, List
+from typing import Tuple
 import json
 import pickle
 import os
-import argparse
-from nuscenes import NuScenes
 from nuscenes.eval.detection.evaluate import DetectionEval
 from nuscenes.eval.detection.data_classes import DetectionConfig
 from nuscenes.eval.detection.config import config_factory
@@ -47,44 +45,6 @@ class WayveDetectionBox(DetectionBox):
                    detection_name=content['detection_name'],
                    detection_score=-1.0 if 'detection_score' not in content else float(content['detection_score']),
                    attribute_name=content['attribute_name'])
-
-
-class_ranges = {
-    'car': 50,
-    'bus': 50,
-    'van': 50,
-    'truck': 50,
-    'bicycle': 40,
-    'motorcycle': 40,
-    'scooter': 40,
-    'cyclist': 40,
-    'motorcyclist': 40,
-    'scooterist': 40,
-    'pedestrian': 40,
-    'traffic_light': 40,
-}
-class WayveDetectionConfig(DetectionConfig):
-    def __init__(
-        self,
-        class_range: Dict[str, int],
-        dist_fcn: str,
-        dist_ths: List[float],
-        dist_th_tp: float,
-        min_recall: float,
-        min_precision: float,
-        max_boxes_per_sample: int,
-        mean_ap_weight: int
-    ):
-        assert dist_th_tp in dist_ths, "dist_th_tp must be in set of dist_ths."
-        self.class_range = class_range
-        self.dist_fcn = dist_fcn
-        self.dist_ths = dist_ths
-        self.dist_th_tp = dist_th_tp
-        self.min_recall = min_recall
-        self.min_precision = min_precision
-        self.max_boxes_per_sample = max_boxes_per_sample
-        self.mean_ap_weight = mean_ap_weight
-        self.class_names = self.class_range.keys()
 
 
 class WayveDetectionEval(DetectionEval):
@@ -147,7 +107,6 @@ class WayveDetectionEval(DetectionEval):
 
         # Add center distances.
         self.pred_boxes = add_center_dist(self.pred_boxes, data['egoposes'])
-        self.meta = {}
         self.gt_boxes = add_center_dist(self.gt_boxes, data['egoposes'])
 
         # Filter boxes (distance, points per box, etc.).
@@ -158,6 +117,7 @@ class WayveDetectionEval(DetectionEval):
             print('Filtering ground truth annotations')
         self.gt_boxes = filter_boxes(self.gt_boxes, self.cfg.class_range, verbose=verbose)
         self.sample_tokens = self.gt_boxes.sample_tokens
+        self.meta = {}
 
 
 def filter_boxes(eval_boxes, max_dist: dict, verbose: bool = True):
@@ -209,31 +169,3 @@ def add_center_dist(eval_boxes: EvalBoxes, egoposes: dict):
                 raise NotImplementedError
 
     return eval_boxes
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description='MMDet test (and eval) a model')
-    parser.add_argument('test_dir', help='file to load results, labels and to put outputs')
-    args = parser.parse_args()
-    return args
-
-
-if __name__ == '__main__':
-    args = parse_args()
-    dc =  WayveDetectionConfig(
-        class_ranges,
-        dist_fcn='center_distance',
-        dist_ths=[0.5, 1.0, 2.0, 4.0],
-        dist_th_tp=2.0,
-        min_recall=0.1,
-        min_precision=0.1,
-        max_boxes_per_sample=500,
-        mean_ap_weight=5,
-    )
-    de = WayveDetectionEval(
-        dc,
-        os.path.join(args.test_dir, 'results_wayve2.json'),
-        os.path.join(args.test_dir, 'labels_wayve2.json'),
-        args.test_dir,
-    )
-    de.main(render_curves=False)

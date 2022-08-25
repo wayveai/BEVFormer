@@ -12,8 +12,8 @@ from mmdet3d.datasets import build_dataset
 from projects.mmdet3d_plugin.datasets.builder import build_dataloader
 
 
-session_dir = '/mnt/remote/azure_session_dir/2d/bevformer/bevformer_small_wayve'
-epoch = 7
+session_dir = '/home/fergal/bevformer_small_wayve'
+epoch = 13
 #  cfg = Config.fromfile('projects/configs/bevformer/bevformer_small_wayve.py')
 #  cfg = Config.fromfile('/home/fergal/repos/zhiqi-li/BEVFormer/work_dirs/bevformer_small_wayve_overfit/bevformer_small_wayve_overfit.py')
 #  cfg = Config.fromfile('/mnt/remote/azure_session_dir/2d/bevformer/bevformer_small_wayve/bevformer_small_wayve.py')
@@ -21,8 +21,10 @@ epoch = 7
 cfg = Config.fromfile(f'{session_dir}/bevformer_small_wayve.py')
 cfg.data.train.ann_file = 'data/wayve/wayve_infos_temporal_train.pkl'
 cfg.data.train.data_root = 'data/wayve'
-cfg.data.test.ann_file = 'data/wayve/wayve_infos_temporal_train.pkl'
+cfg.data.train.use_vehicle_ref = True
+cfg.data.test.ann_file = 'data/wayve/wayve_infos_temporal_test.pkl'
 cfg.data.test.data_root = 'data/wayve'
+cfg.data.test.use_vehicle_ref = True
 
 
 #  img_norm_cfg = dict(
@@ -99,7 +101,7 @@ model.cuda()
 # run inference
 output = []
 for i, data in tqdm(enumerate(data_loader)):
-    if i >= 15:
+    if i >= 75:
         break
     with torch.no_grad():
         # print(data['img_metas'])
@@ -139,7 +141,12 @@ for i, data in tqdm(enumerate(data_loader)):
 
         #  break
 
+
+#  with open(f'/home/fergal/labels.pkl', 'wb') as f:
+    #  pickle.dump(output, f)
 #  with open(f'/home/fergal/pretrained.pkl', 'wb') as f:
     #  pickle.dump(output, f)
-with open(f'/home/fergal/out{epoch}.pkl', 'wb') as f:
+with open(f'{session_dir}/preds_epoch_{epoch}.pkl', 'wb') as f:
     pickle.dump(output, f)
+#  with open(f'/home/fergal/out{epoch}.pkl', 'wb') as f:
+    #  pickle.dump(output, f)

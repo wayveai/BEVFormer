@@ -33,15 +33,8 @@ import matplotlib.pyplot as plt
 from nuscenes.utils.data_classes import LidarPointCloud, RadarPointCloud, Box
 from PIL import Image
 from matplotlib import rcParams
+from projects.mmdet3d_plugin.datasets.wayve_dataset import WayveDataset, camera_order
 
-cameras = [
-    'front-forward',
-    'front-left-leftward',
-    'front-right-rightward',
-    'back-backward',
-    'back-right-rightward',
-    'back-left-leftward',
-]
 
 
 def render_annotation(
@@ -208,12 +201,13 @@ def get_sample_data(sample_data_token: str,
 
 
 
-def get_predicted_data(sample_data_token: str,
-                       box_vis_level: BoxVisibility = BoxVisibility.ANY,
-                       selected_anntokens=None,
-                       use_flat_vehicle_coordinates: bool = False,
-                       pred_anns=None
-                       ):
+def get_predicted_data(
+    sample_data_token: str,
+    box_vis_level: BoxVisibility = BoxVisibility.ANY,
+    selected_anntokens=None,
+    use_flat_vehicle_coordinates: bool = False,
+    pred_anns=None
+):
     """
     Returns the data path as well as all annotations related to that sample_data.
     Note that the boxes are transformed into the current sensor's coordinate frame.
@@ -271,8 +265,6 @@ def get_predicted_data(sample_data_token: str,
     return data_path, box_list, cam_intrinsic
 
 
-
-
 def get_color(category_name: str):
     """
     Provides the default colors based on the category names.
@@ -305,7 +297,7 @@ def get_color(category_name: str):
 
 
 def render_sample_data(
-        sample_toekn: str,
+        sample_token: str,
         with_anns: bool = True,
         box_vis_level: BoxVisibility = BoxVisibility.ANY,
         axes_limit: float = 40,
@@ -349,9 +341,9 @@ def render_sample_data(
         If show_lidarseg is True, show_panoptic will be set to False.
     """
     # Render the birds eye view of the predictions and the ground truth
-    #  lidiar_render(sample_toekn, pred_data, out_path=out_path)
+    #  lidiar_render(sample_token, pred_data, out_path=out_path)
 
-    #  sample = nusc.get('sample', sample_toekn)
+    #  sample = nusc.get('sample', sample_token)
     # sample = data['results'][sample_token_list[0]][0]
     if ax is None:
         if with_anns:
@@ -360,61 +352,62 @@ def render_sample_data(
             _, ax = plt.subplots(2, 3, figsize=(24, 10))
     j = 0
 
-    for ind, cam in enumerate(cameras):
-        sample_data_token = sample['data'][cam]
+    sample_data = wayve.get_data_info(wayve.token_mapping[int(sample_token)])
 
-        sd_record = nusc.get('sample_data', sample_data_token)
-        sensor_modality = sd_record['sensor_modality']
+    import ipdb; ipdb.set_trace()
+    for ind, cam in enumerate(camera_order):
+        # Load boxes and image.
+        boxes = [
+            Box(
+                record['translation'],
+                record['size'],
+                Quaternion(record['rotation']),
+                name=record['detection_name'],
+                token='predicted'
+            ) for record in pred_data['results'][sample_token] if record['detection_score'] > 0.1
+        ]
+        data_path, boxes_pred, camera_intrinsic = get_predicted_data(
+            sample_data_token, box_vis_level=box_vis_level, pred_anns=boxes
+        )
+        _, boxes_gt, _ = nusc.get_sample_data(sample_data_token, box_vis_level=box_vis_level)
+        if ind == 3:
+            j += 1
+        ind = ind % 3
+        data = Image.open(data_path)
+        # mmcv.imwrite(np.array(data)[:,:,::-1], f'{cam}.png')
+        # Init axes.
 
-        if sensor_modality in ['lidar', 'radar']:
-            assert False
-        elif sensor_modality == 'camera':
-            # Load boxes and image.
-            boxes = [Box(record['translation'], record['size'], Quaternion(record['rotation']),
-                         name=record['detection_name'], token='predicted') for record in
-                     pred_data['results'][sample_toekn] if record['detection_score'] > 0.2]
+        # Show image.
+        ax[j, ind].imshow(data)
+        ax[j + 2, ind].imshow(data)
 
-            data_path, boxes_pred, camera_intrinsic = get_predicted_data(sample_data_token,
-                                                                         box_vis_level=box_vis_level, pred_anns=boxes)
-            _, boxes_gt, _ = nusc.get_sample_data(sample_data_token, box_vis_level=box_vis_level)
-            if ind == 3:
-                j += 1
-            ind = ind % 3
-            data = Image.open(data_path)
-            # mmcv.imwrite(np.array(data)[:,:,::-1], f'{cam}.png')
-            # Init axes.
+        # Show boxes.
+        if with_anns:
+            for box in boxes_pred:
+                c = np.array(get_color(box.name)) / 255.0
+                box.render(ax[j, ind], view=camera_intrinsic, normalize=True, colors=(c, c, c))
+            for box in boxes_gt:
+                c = np.array(get_color(box.name)) / 255.0
+                box.render(ax[j + 2, ind], view=camera_intrinsic, normalize=True, colors=(c, c, c))
 
-            # Show image.
-            ax[j, ind].imshow(data)
-            ax[j + 2, ind].imshow(data)
+        # Limit visible range.
+        ax[j, ind].set_xlim(0, data.size[0])
+        ax[j, ind].set_ylim(data.size[1], 0)
+        ax[j + 2, ind].set_xlim(0, data.size[0])
+        ax[j + 2, ind].set_ylim(data.size[1], 0)
 
-            # Show boxes.
-            if with_anns:
-                for box in boxes_pred:
-                    c = np.array(get_color(box.name)) / 255.0
-                    box.render(ax[j, ind], view=camera_intrinsic, normalize=True, colors=(c, c, c))
-                for box in boxes_gt:
-                    c = np.array(get_color(box.name)) / 255.0
-                    box.render(ax[j + 2, ind], view=camera_intrinsic, normalize=True, colors=(c, c, c))
+    else:
+        raise ValueError("Error: Unknown sensor modality!")
 
-            # Limit visible range.
-            ax[j, ind].set_xlim(0, data.size[0])
-            ax[j, ind].set_ylim(data.size[1], 0)
-            ax[j + 2, ind].set_xlim(0, data.size[0])
-            ax[j + 2, ind].set_ylim(data.size[1], 0)
+    ax[j, ind].axis('off')
+    ax[j, ind].set_title('PRED: {} {labels_type}'.format(
+        sd_record['channel'], labels_type='(predictions)' if lidarseg_preds_bin_path else ''))
+    ax[j, ind].set_aspect('equal')
 
-        else:
-            raise ValueError("Error: Unknown sensor modality!")
-
-        ax[j, ind].axis('off')
-        ax[j, ind].set_title('PRED: {} {labels_type}'.format(
-            sd_record['channel'], labels_type='(predictions)' if lidarseg_preds_bin_path else ''))
-        ax[j, ind].set_aspect('equal')
-
-        ax[j + 2, ind].axis('off')
-        ax[j + 2, ind].set_title('GT:{} {labels_type}'.format(
-            sd_record['channel'], labels_type='(predictions)' if lidarseg_preds_bin_path else ''))
-        ax[j + 2, ind].set_aspect('equal')
+    ax[j + 2, ind].axis('off')
+    ax[j + 2, ind].set_title('GT:{} {labels_type}'.format(
+        sd_record['channel'], labels_type='(predictions)' if lidarseg_preds_bin_path else ''))
+    ax[j + 2, ind].set_aspect('equal')
 
     if out_path is not None:
         plt.savefig(out_path+'_camera', bbox_inches='tight', pad_inches=0, dpi=200)
@@ -422,12 +415,15 @@ def render_sample_data(
         plt.show()
     plt.close()
 
+
 if __name__ == '__main__':
-    import ipdb; ipdb.set_trace()
-    # render_annotation('7603b030b42a4b1caa8c443ccc1a7d52')
-    #  bevformer_results = mmcv.load('test/bevformer_base/Thu_Jun__9_16_22_37_2022/pts_bbox/results_nusc.json')
-    #  bevformer_results = mmcv.load('test/bevformer_base/Tue_Jun_28_13_57_25_2022/pts_bbox/results_nusc.json')
     bevformer_results = mmcv.load('test/bevformer_tiny_wayve/Tue_Jul__5_14_29_44_2022/pts_bbox/results_nusc.json')
+    wayve = WayveDataset(
+        data_root='data/wayve',
+        ann_file='data/wayve/wayve_infos_temporal_train.pkl',
+        test_mode=True,
+        modality={'use_camera': True}
+    )
     sample_token_list = list(bevformer_results['results'].keys())
     for id in range(0, 10):
         render_sample_data(

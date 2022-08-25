@@ -226,7 +226,8 @@ def main():
         test_cfg=cfg.get('test_cfg'))
     model.init_weights()
     model.load_state_dict(
-        torch.load('/BEVFormer/ckpts/bevformer_r101_dcn_24ep.pth', map_location=f'cuda:{rank}')['state_dict']
+        #  torch.load('/BEVFormer/ckpts/bevformer_r101_dcn_24ep.pth', map_location=f'cuda:{rank}')['state_dict']
+        torch.load('/BEVFormer/ckpts/bevformer_small_epoch_24.pth', map_location=f'cuda:{rank}')['state_dict']
     )
 
     logger.info(f'Model:\n{model}')
