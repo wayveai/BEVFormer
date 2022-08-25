@@ -80,6 +80,7 @@ class WayveDataset(CustomNuScenesDataset):
         """
         with open(ann_file, 'rb') as f:
             data = pickle.load(f)
+        #  data = data[:16]
 
         # Make a mapping so that we can load a sample given its 'token'
         self.token_mapping = {d['token']: i for i, d in enumerate(data)}

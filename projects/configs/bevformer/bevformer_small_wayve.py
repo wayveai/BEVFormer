@@ -28,7 +28,7 @@ _ffn_dim_ = _dim_*2
 _num_levels_ = 1
 bev_h_ = 150
 bev_w_ = 150
-queue_length = 3 # each sequence contains `queue_length` frames.
+queue_length = 1 # each sequence contains `queue_length` frames.
 
 model = dict(
     type='BEVFormer',
