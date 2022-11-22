@@ -4,9 +4,12 @@
 # ---------------------------------------------
 
 import mmcv
+import os
 from nuscenes.nuscenes import NuScenes
+from nuscenes.utils import splits
 from PIL import Image
 from nuscenes.utils.geometry_utils import view_points, box_in_image, BoxVisibility, transform_matrix
+from tools.data_converter.nuscenes_converter import get_available_scenes
 from typing import Tuple, List, Iterable
 import matplotlib.pyplot as plt
 import numpy as np
@@ -468,10 +471,31 @@ def render_sample_data(
         plt.show()
     plt.close()
 
+
 if __name__ == '__main__':
     nusc = NuScenes(version='v1.0-trainval', dataroot='./data/nuscenes', verbose=True)
     # render_annotation('7603b030b42a4b1caa8c443ccc1a7d52')
-    bevformer_results = mmcv.load('test/bevformer_base/Thu_Jun__9_16_22_37_2022/pts_bbox/results_nusc.json')
+    bevformer_results = mmcv.load('test/bevformer_small/Tue_Nov_22_12_39_46_2022/pts_bbox/results_nusc.json')
     sample_token_list = list(bevformer_results['results'].keys())
-    for id in range(0, 10):
-        render_sample_data(sample_token_list[id], pred_data=bevformer_results, out_path=sample_token_list[id])
+
+    available_scenes = get_available_scenes(nusc)
+    available_scene_names = [s['name'] for s in available_scenes]
+    val_scenes = list(filter(lambda x: x in available_scene_names, splits.val))
+    val_scene_tokens = [
+        available_scenes[available_scene_names.index(s)]['token']
+        for s in val_scenes
+    ]
+
+    for scene_num, scene_token in zip(val_scenes, val_scene_tokens):
+        outpath = f'visual/bevformer_small/{scene_num}'
+        os.makedirs(outpath, exist_ok=True)
+        start_sample_token = nusc.get('scene', scene_token)['first_sample_token']
+        last_sample_token = nusc.get('scene', scene_token)['last_sample_token']
+        i = 0
+        token = start_sample_token
+        while token != last_sample_token:
+            sample = nusc.get('sample', token)
+            if token in sample_token_list:
+                render_sample_data(token, pred_data=bevformer_results, out_path=f'{outpath}/{i:03}')
+            token = sample['next']
+            i += 1
