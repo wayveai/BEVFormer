@@ -28,7 +28,7 @@ _ffn_dim_ = _dim_*2
 _num_levels_ = 1
 bev_h_ = 150
 bev_w_ = 150
-queue_length = 1 # each sequence contains `queue_length` frames.
+queue_length = 3 # each sequence contains `queue_length` frames.
 
 model = dict(
     type='BEVFormer',
@@ -235,7 +235,7 @@ data = dict(
 )
 
 evaluation = dict(
-    interval=1,
+    interval=100,
     pipeline=[
         dict(type='LoadMultiViewImageFromFiles', to_float32=True),
         dict(type='NormalizeMultiviewImage', **img_norm_cfg),
@@ -254,9 +254,9 @@ evaluation = dict(
                 dict(type='CustomCollect3D', keys=['img'])
             ])
     ])
-checkpoint_config = dict(interval=1)
+checkpoint_config = dict(interval=100)
 log_config = dict(
-    interval=50,
+    interval=2,
     hooks=[dict(type='TextLoggerHook'),
            dict(type='TensorboardLoggerHook')])
 dist_params = dict(backend='nccl')
@@ -279,6 +279,6 @@ lr_config = dict(
     warmup_iters=500,
     warmup_ratio=0.3333333333333333,
     min_lr_ratio=0.001)
-total_epochs = 24
-runner = dict(type='EpochBasedRunner', max_epochs=24)
+total_epochs = 1000
+runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)
 #  gpu_ids = range(0, 2)

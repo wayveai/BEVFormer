@@ -220,7 +220,7 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    dc =  WayveDetectionConfig(
+    dc = WayveDetectionConfig(
         class_ranges,
         dist_fcn='center_distance',
         dist_ths=[0.5, 1.0, 2.0, 4.0],

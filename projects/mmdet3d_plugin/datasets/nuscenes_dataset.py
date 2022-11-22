@@ -27,7 +27,7 @@ class CustomNuScenesDataset(NuScenesDataset):
         self.queue_length = queue_length
         self.overlap_test = overlap_test
         self.bev_size = bev_size
-        
+
     def prepare_train_data(self, index):
         """
         Training data preparation.

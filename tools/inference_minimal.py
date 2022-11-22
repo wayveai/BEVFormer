@@ -13,7 +13,7 @@ from projects.mmdet3d_plugin.datasets.builder import build_dataloader
 
 
 session_dir = '/home/fergal/bevformer_small_wayve'
-epoch = 13
+epoch = 2
 #  cfg = Config.fromfile('projects/configs/bevformer/bevformer_small_wayve.py')
 #  cfg = Config.fromfile('/home/fergal/repos/zhiqi-li/BEVFormer/work_dirs/bevformer_small_wayve_overfit/bevformer_small_wayve_overfit.py')
 #  cfg = Config.fromfile('/mnt/remote/azure_session_dir/2d/bevformer/bevformer_small_wayve/bevformer_small_wayve.py')

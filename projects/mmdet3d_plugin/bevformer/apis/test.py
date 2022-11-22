@@ -92,7 +92,8 @@ def custom_multi_gpu_test(model, data_loader, tmpdir=None, gpu_collect=False):
             for _ in range(batch_size * world_size):
                 prog_bar.update()
 
-    #  return bbox_results
+    if not torch.distributed.is_initialized():
+        return bbox_results
 
     # collect results from all ranks
     if gpu_collect:
